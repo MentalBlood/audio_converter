@@ -52,7 +52,8 @@ def convertAllFromDir(input_dir, output_dir, extensions, threads, is_overwrite):
 			if os.path.exists(new_file_path):
 				continue
 		new_dir = os.path.dirname(new_file_path)
-		os.makedirs(new_dir)
+		if not os.path.exists(new_dir):
+			os.makedirs(new_dir)
 		new_file_list.append((file_path, new_file_path))
 	
 	for result in tqdm(
