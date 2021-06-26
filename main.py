@@ -7,6 +7,7 @@ from shutil import copyfile, rmtree
 from multiprocessing.pool import ThreadPool
 
 
+
 parser = argparse.ArgumentParser(description='Fast converter for audiofiles using ffmpeg')
 parser.add_argument('--config', type=str,
 					help='config file path', default='default_config.json')
@@ -14,65 +15,110 @@ args = parser.parse_args()
 
 with open(args.config) as config_file:
 	config = json.load(config_file)
-input_dir = config['input_dir']
-output_dir = config['output_dir']
-threads = config['threads']
-is_overwrite = config['is_overwrite']
-copy_other_files = config['copy_other_files']
-bitrate = config['bitrate']
-from_extensions = config['from_extensions']
-to_extension = config['to_extension']
+
+
 
 def convertAudioFile(file_path, new_file_path):
-	os.system(f'ffmpeg -y -i "\\\\?\\{file_path}" -b {bitrate} "\\\\?\\{new_file_path}" > NUL 2>&1')
+	os.system(f'ffmpeg -y -i "\\\\?\\{file_path}" -b {config["bitrate"]} "\\\\?\\{new_file_path}" > NUL 2>&1')
 
-def convertAllFromDir(input_dir, output_dir, extensions, threads, is_overwrite):
-	
-	if is_overwrite and os.path.exists(output_dir):
-		print('Removing old files...')
-		rmtree(output_dir)
+
+def processSequentially(array, function, description):
+	for result in tqdm(
+			map(
+				function,
+				array
+			),
+			desc=description,
+			total=len(array)):
+		pass
+
+
+def processInParallel(array, function, description, threads=config['threads']):
+	for result in tqdm(
+			ThreadPool(threads).imap_unordered(
+				function,
+				array
+			),
+			desc=description,
+			total=len(array)):
+		pass
+
+
+def removeOldFiles(config):
+	print('Removing old files...')
+	rmtree(config['output_dir'])
+
+
+def removeMismatched(config):
+
+	directories_to_remove = []
+
+	for some_path in tqdm(
+		filter(
+			lambda p: (
+				(not os.path.isfile(p)) and 
+				(not os.path.exists(p.replace(config['output_dir'], config['input_dir'])))
+			), 
+			glob.iglob(config['output_dir'] + '/**', recursive=True)
+		), 
+		desc='Removing mismatched directories'
+	):
+		rmtree(some_path)
+
+
+def convertAll(config):
 	
 	audio_files_paths = []
-	copy_tasks = []
 	
-	for file_path in tqdm(filter(os.path.isfile, glob.iglob(input_dir + '/**', recursive=True)), desc='Looking for audiofiles'):
+	for file_path in tqdm(filter(os.path.isfile, glob.iglob(config['input_dir'] + '/**', recursive=True)), desc='Looking for audiofiles'):
 		
 		extension = file_path.split('.')[-1]
-		if extension in extensions:
-			new_file_path = file_path.replace(input_dir, output_dir)
-			new_file_path = '.'.join(new_file_path.split('.')[:-1]) + '.' + to_extension
-			new_file_list = audio_files_paths
-		elif copy_other_files:
-			new_file_path = file_path.replace(input_dir, output_dir)
-			new_file_list = copy_tasks
+		if extension in config['from_extensions']:
+			new_file_path = file_path.replace(config['input_dir'], config['output_dir'])
+			new_file_path = '.'.join(new_file_path.split('.')[:-1]) + '.' + config['to_extension']
 		else:
 			continue
 		
-		if not is_overwrite:
+		if not config['is_overwrite']:
 			if os.path.exists(new_file_path):
 				continue
 		new_dir = os.path.dirname(new_file_path)
 		if not os.path.exists(new_dir):
 			os.makedirs(new_dir)
-		new_file_list.append((file_path, new_file_path))
-	
-	for result in tqdm(
-			ThreadPool(threads).imap_unordered(
-				lambda p: convertAudioFile(*p), 
-				audio_files_paths
-			), 
-			desc=f'Converting audiofiles from {input_dir}', 
-			total=len(audio_files_paths)):
-		pass
-	
-	if copy_other_files:
-		for task in tqdm(
-				ThreadPool(threads).imap_unordered(
-					lambda task: copyfile(*task), 
-					copy_tasks
-				), 
-				desc=f'Copying other files from {input_dir}', 
-				total=len(copy_tasks)):
-			pass
+		audio_files_paths.append((file_path, new_file_path))
 
-convertAllFromDir(input_dir, output_dir, from_extensions, threads, is_overwrite)
+	processInParallel(audio_files_paths, lambda p: convertAudioFile(*p), f'Converting audiofiles from {config["input_dir"]}')
+
+
+def copyOtherFiles(config):
+
+	copy_tasks = []
+
+	for file_path in tqdm(filter(os.path.isfile, glob.iglob(config['input_dir'] + '/**', recursive=True)), desc='Looking for other files'):
+		extension = file_path.split('.')[-1]
+		if not extension in config['from_extensions']:
+			new_file_path = file_path.replace(config['input_dir'], config['output_dir'])
+			if not os.path.exists(new_file_path):
+				new_dir = os.path.dirname(new_file_path)
+				if not os.path.exists(new_dir):
+					os.makedirs(new_dir)
+				copy_tasks.append((file_path, new_file_path))
+
+	processInParallel(copy_tasks, lambda task: copyfile(*task), f'Copying other files from {config["input_dir"]}')
+
+
+def processTasks(tasks, config):
+	for function, condition in tasks:
+		if condition:
+			function(config)
+
+
+
+processTasks([
+		(removeOldFiles,	config['is_overwrite'] and os.path.exists(config['output_dir'])),
+		(removeMismatched,	config['sync'] and (not config['is_overwrite'])), 
+		(convertAll,		True),
+		(copyOtherFiles,	config['copy_other_files'])
+	],
+	config
+)
