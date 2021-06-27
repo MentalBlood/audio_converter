@@ -4,6 +4,15 @@ Fast, directory structure saving, parallel converter for audio files using `ffmp
 
 ## Requirements
 
+### OS
+
+**Windows**, because using some windows-specific command-line notation:
+
+* Prefixing paths with `\\?\` to disable path length limit (see `disableLengthLimit` function)
+* Adding ` > NUL 2>&1` at the end of commands to disable output (see functions `isAudioFileOk` and `convertAudioFile`)
+
+### Packages
+
 * `argparse`
 * `tqdm`
 
