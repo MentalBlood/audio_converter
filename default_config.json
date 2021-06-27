@@ -1,7 +1,8 @@
 {
-	"input_dir": "G:\\music\\",
-	"output_dir": "F:\\music_mp3\\",
-	"threads": 12,
+	"cache_file": "cache.json",
+	"input_dir": "G:\\music",
+	"output_dir": "F:\\music_mp3",
+	"threads": 10,
 	"is_overwrite": false,
 	"sync": true,
 	"copy_other_files": true,
