@@ -235,7 +235,7 @@ def processTasks(tasks, config):
 processTasks([
 		(removeOldFiles,				config['is_overwrite'] and os.path.exists(config['output_dir'])),
 		(removeMismatched,				config['sync'] and (not config['is_overwrite'])), 
-		(removeInvalidTargetAudiofiles,	True), 
+		(removeInvalidTargetAudiofiles,	not config['is_overwrite']), 
 		(convertAll,					True), 
 		(copyOtherFiles,				config['copy_other_files']) 
 	],
