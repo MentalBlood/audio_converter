@@ -1,5 +1,7 @@
 # Audio Converter
 
+[![forthebadge](https://forthebadge.com/images/badges/made-with-python.svg)](https://forthebadge.com) [![forthebadge](https://forthebadge.com/images/badges/ages-12.svg)](https://forthebadge.com)
+
 Fast, directory structure saving, parallel converter for audio files using `ffmpeg`
 
 ## Requirements
