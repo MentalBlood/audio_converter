@@ -1,18 +1,17 @@
+from multiprocessing.sharedctypes import Value
 import os
-import argparse
 import json
 import glob
-import hashlib
-from functools import partial, reduce
-from operator import methodcaller
+import argparse
 from tqdm.auto import tqdm
+from functools import reduce
 from shutil import copyfile, rmtree
 from multiprocessing.pool import ThreadPool
 
 
 
 parser = argparse.ArgumentParser(description='Fast converter for audiofiles using ffmpeg')
-parser.add_argument('--config', type=str,
+parser.add_argument('--config', '-c', type=str,
 					help='config file path', default='default_config.json')
 args = parser.parse_args()
 
@@ -71,7 +70,6 @@ def useCache(cache, keys_to_compute):
 				cache[function.__name__][joint_key] = function(*args, **kwargs)
 				global cache_changed
 				cache_changed += 1
-				# dumpCache()
 			
 			return cache[function.__name__][joint_key]
 		
@@ -104,20 +102,35 @@ def useCache(cache, keys_to_compute):
 def isAudioFileOk(file_path):
 	return 0 == os.system(f'ffmpeg -i "{file_path}" -c copy -f null - > NUL 2>&1')
 
-# isAudioFileOk(file_path=r'F:\music_mp3\Cor\Wake - Devouring Ruin 2020\Wake - Devouring Ruin.mp3')
-# exit()
-
 
 def disableLengthLimit(path):
 	return '\\\\?\\' + path
 
 
+def isInt(i):
+	try:
+		int(i)
+		return True
+	except ValueError:
+		return False
+
+
 def convertAudioFile(file_path, new_file_path):
-	os.system(f'ffmpeg -y -i "{file_path}" -b {config["bitrate"]} "{new_file_path}" > NUL 2>&1')
+
+	command = None
+
+	if (config['bitrate'][-1] == 'k') and (isInt(config['bitrate'][:-1])):
+		command = f'ffmpeg -y -i "{file_path}" -b {config["bitrate"]} "{new_file_path}" > NUL 2>&1'
+	elif config['bitrate'].lower() == 'v0':	
+		command = f'ffmpeg -y -i "{file_path}" -c:a libmp3lame -q:a 0 "{new_file_path}" > NUL 2>&1'
+	else:
+		raise Exception(f"Unknown format: extension '{config['extension']}' with bitrate '{config['bitrate']}'")
+	
+	return os.system(command)
 
 
 def processSequentially(array, function, description):
-	for result in tqdm(
+	for _ in tqdm(
 			map(
 				function,
 				array
@@ -128,7 +141,7 @@ def processSequentially(array, function, description):
 
 
 def processInParallel(array, function, description, threads=config['threads']):
-	for result in tqdm(
+	for _ in tqdm(
 			ThreadPool(threads).imap_unordered(
 				function,
 				array
@@ -144,8 +157,6 @@ def removeOldFiles(config):
 
 
 def removeMismatched(config):
-
-	directories_to_remove = []
 
 	processSequentially(
 		filter(

@@ -1,12 +1,12 @@
 {
 	"cache_file": "cache.json",
-	"input_dir": "G:\\music",
-	"output_dir": "F:\\music_mp3",
-	"threads": 10,
+	"input_dir": "I:\\music\\Dungeon Synth",
+	"output_dir": "E:\\music\\Dungeon Synth",
+	"threads": 20,
 	"is_overwrite": false,
 	"sync": true,
-	"copy_other_files": true,
+	"copy_other_files": false,
 	"from_extensions": ["flac"],
 	"to_extension": "mp3",
-	"bitrate": "320k"
+	"bitrate": "V0"
 }
